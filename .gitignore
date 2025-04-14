@@ -1,0 +1,18 @@
+# Ignore caches and DB
+.cache/
+*.db
+
+# Ignore environment and secrets
+.env
+
+# Ignore binaries
+*.dll
+*.def
+
+# Ignore Python bytecode
+__pycache__/
+*.pyc
+
+# Ignore virtual environments
+env/
+venv/
