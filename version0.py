@@ -192,7 +192,7 @@ def generate_article():
         )
         vector_store = Chroma(
             embedding_function=embeddings,
-            persist_directory="chroma_db"
+            persist_directory="C:/Users/MATHALIN/smartsuggestion/chroma_db"
         )
         relevant_docs = vector_store.similarity_search(f"{title}. Keywords: {', '.join(keywords)}", k=3)
         relevant_content = "\n\n".join([doc.page_content for doc in relevant_docs])
