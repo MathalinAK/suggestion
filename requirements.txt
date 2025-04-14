@@ -6,3 +6,4 @@ autogen
 chromadb
 langchain-google-genai
 langchain-community
+sentence-transformers>=2.2.2
