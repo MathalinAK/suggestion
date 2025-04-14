@@ -1,0 +1,10 @@
+suggestion/Lib/site-packages/torch/lib/dnnl.lib
+suggestion/Lib/site-packages/chromadb_rust_bindings/chromadb_rust_bindings.pyd
+suggestion/Lib/site-packages/torch/lib/libprotoc.lib
+suggestion/Lib/site-packages/torch/lib/libprotobuf.lib
+suggestion/Lib/site-packages/torch/lib/torch_cpu.lib
+suggestion/Lib/site-packages/torch/lib/kineto.lib
+chroma_db/7772fde9-2ab3-44b7-b355-9ffd9d6cf2a3/data_level0.bin
+suggestion/Lib/site-packages/onnxruntime/capi/onnxruntime_pybind11_state.pyd
+suggestion/share/jupyter/nbextensions/pydeck/index.js.map
+suggestion/Lib/site-packages/grpc/_cython/cygrpc.cp312-win_amd64.pyd
