@@ -8,7 +8,6 @@ import chromadb
 from langchain_google_genai import GoogleGenerativeAIEmbeddings
 from chromadb.utils import embedding_functions
 from langchain_community.vectorstores import Chroma  
-from sentence_transformers import SentenceTransformer
 
 load_dotenv()
 os.environ["AUTOGEN_USE_DOCKER"] = "False"
