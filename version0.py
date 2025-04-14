@@ -8,6 +8,7 @@ import chromadb
 from langchain_google_genai import GoogleGenerativeAIEmbeddings
 from chromadb.utils import embedding_functions
 from langchain_community.vectorstores import Chroma  
+from sentence_transformers import SentenceTransformer
 
 load_dotenv()
 os.environ["AUTOGEN_USE_DOCKER"] = "False"
@@ -713,10 +714,3 @@ elif st.session_state.refinement_requested and not st.session_state.versions_gen
             ]
             st.rerun()
 
-elif st.session_state.versions_generated:
-    if st.button("Generate New Versions"):
-        st.session_state.versions_generated = False
-        st.session_state.post_type = None
-        st.session_state.tone = None
-        st.session_state.custom_tone = None
-        st.rerun()
