@@ -1,3 +1,18 @@
+import sys
+import sqlite3
+if sqlite3.sqlite_version_info < (3, 35, 0):
+    try:
+        __import__('pysqlite3')
+        sys.modules['sqlite3'] = sys.modules.pop('pysqlite3')
+    except ImportError:
+        try:
+            from chromadb.utils import embedding_functions
+            embedding_functions._sqlite3 = sqlite3
+            sys.modules['sqlite3'] = sqlite3
+        except ImportError:
+            pass  
+from langchain.embeddings import HuggingFaceEmbeddings
+import chromadb
 import streamlit as st
 import os
 from dotenv import load_dotenv
@@ -185,24 +200,26 @@ def generate_analysis():
 def generate_article():
     try:
         title, keywords = extract_title_keywords_relevance(st.session_state.current_analysis)
-        embeddings = GoogleGenerativeAIEmbeddings(
-            model="models/embedding-001",  
-            google_api_key=os.getenv("GOOGLE_API_KEY")
-        )
-        client = chromadb.PersistentClient(path="C:/Users/MATHALIN/smartsuggestion(ai)/chroma_db")
+        embeddings = HuggingFaceEmbeddings(model_name="all-MiniLM-L6-v2")
+        
+        from chromadb import PersistentClient
+        client = PersistentClient(path="C:/Users/MATHALIN/smartsuggestion(ai)/chroma_db")
+        
         try:
             client.delete_collection(name="documents")
         except:
-            pass    
+            pass
+
         vector_store = Chroma(
+            client=client,
             embedding_function=embeddings,
-            persist_directory="C:/Users/MATHALIN/smartsuggestion(ai)/chroma_db",
             collection_name="documents"
         )
+
         search_query = f"{title}. Keywords: {', '.join(keywords)}"
         relevant_docs = vector_store.similarity_search(search_query, k=3)
         relevant_content = "\n\n".join([doc.page_content for doc in relevant_docs])
-        
+
         prompt = f"""
             Write a clear, engaging article (500-600 words) on: {title}
             Make it simple, crisp, and easy to follow for a broad audience.
@@ -227,6 +244,7 @@ def generate_article():
             Reference this content:
             {relevant_content}
             """
+
         assistant = AssistantAgent(
             name="writer_agent",
             system_message="You're a professional content writer.",

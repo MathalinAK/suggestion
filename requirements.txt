@@ -3,7 +3,7 @@ python-dotenv
 PyPDF2
 langchain
 autogen
-chromadb
+chromadb==0.3.29 
 langchain-google-genai
 langchain-community
 sentence-transformers==2.7.0
