@@ -28,7 +28,7 @@ from chromadb.utils import embedding_functions
 load_dotenv()
 os.environ["AUTOGEN_USE_DOCKER"] = "False"
 
-# Initialize client - new syntax for ChromaDB >= 0.4.0
+# Initialize client - correct syntax for ChromaDB >= 0.4.0
 chroma_client = chromadb.PersistentClient(path="chroma_db")
 
 # Create embedding function
@@ -209,33 +209,50 @@ def generate_analysis():
 
 def generate_article():
     try:
+        # 1. Extract title and keywords
         title, keywords = extract_title_keywords_relevance(st.session_state.current_analysis)
         
-        # Initialize embeddings (consistent with your collection's embedding function)
+        # 2. Initialize embeddings
         embeddings = HuggingFaceEmbeddings(model_name="all-MiniLM-L6-v2")
         
-        # Connect to existing ChromaDB
+        # 3. Initialize ChromaDB (modern syntax for v1.0+)
         from chromadb import PersistentClient
-        client = PersistentClient(path="C:/Users/MATHALIN/smartsuggestion(ai)/chroma_db")
+        from chromadb.utils import embedding_functions
         
-        # Get existing collection
-        collection = client.get_collection(
-            name="documents",
-            embedding_function=sentence_transformer_ef  # Use the same function from top
+        # Normalize path for cross-platform compatibility
+        import os
+        chroma_path = os.path.normpath("C:/Users/MATHALIN/smartsuggestion(ai)/chroma_db")
+        
+        # Create client and embedding function
+        client = PersistentClient(path=chroma_path)
+        sentence_transformer_ef = embedding_functions.SentenceTransformerEmbeddingFunction(
+            model_name="all-MiniLM-L6-v2"
         )
         
-        # Create LangChain vector store
+        # 4. Collection handling with modern API
+        try:
+            client.delete_collection(name="documents")
+        except Exception as e:
+            st.warning(f"Collection reset warning: {str(e)}")
+        
+        collection = client.get_or_create_collection(
+            name="documents",
+            embedding_function=sentence_transformer_ef
+        )
+        
+        # 5. Create LangChain vector store
         vector_store = Chroma(
             client=client,
-            collection_name="documents",
-            embedding_function=embeddings
+            embedding_function=embeddings,
+            collection_name="documents"
         )
 
+        # 6. Perform similarity search
         search_query = f"{title}. Keywords: {', '.join(keywords)}"
         relevant_docs = vector_store.similarity_search(search_query, k=3)
         relevant_content = "\n\n".join([doc.page_content for doc in relevant_docs])
 
-        # Rest of your function remains the same...
+        # [Rest of your existing article generation code...]
         prompt = f"""
             Write a clear, engaging article (500-600 words) on: {title}
             Make it simple, crisp, and easy to follow for a broad audience.
@@ -286,6 +303,7 @@ def generate_article():
             
     except Exception as e:
         st.error(f"Article generation failed: {str(e)}")
+        st.exception(e)  
         return False
 
 def refine_article(feedback):
