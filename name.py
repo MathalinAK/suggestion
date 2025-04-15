@@ -1,2 +1,2 @@
-import chromadb
-print(f"ChromaDB version: {chromadb.__version__}")  # Should be >= 0.4.0
+import sqlite3
+print(sqlite3.sqlite_version)  # Should be 3.35.0 or higher

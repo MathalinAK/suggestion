@@ -1,47 +1,49 @@
 import sys
 import sqlite3
+import os
+import streamlit as st
+from dotenv import load_dotenv
+
+# ✅ Override sqlite3 for Chroma compatibility (especially in cloud)
 if sqlite3.sqlite_version_info < (3, 35, 0):
     try:
-        __import__('pysqlite3')
-        sys.modules['sqlite3'] = sys.modules.pop('pysqlite3')
+        from chromadb.utils import embedding_functions
+        embedding_functions._sqlite3 = sqlite3
+        sys.modules['sqlite3'] = sqlite3
     except ImportError:
-        try:
-            from chromadb.utils import embedding_functions
-            embedding_functions._sqlite3 = sqlite3
-            sys.modules['sqlite3'] = sqlite3
-        except ImportError:
-            pass  
+        pass
+
+from chromadb import PersistentClient
+from chromadb.utils import embedding_functions
 from langchain.embeddings import HuggingFaceEmbeddings
-import chromadb
-import streamlit as st
-import os
-from dotenv import load_dotenv
+from langchain_community.vectorstores import Chroma
 from PyPDF2 import PdfReader
 from langchain.text_splitter import RecursiveCharacterTextSplitter
 from autogen import AssistantAgent, UserProxyAgent
-from langchain_google_genai import GoogleGenerativeAIEmbeddings
-from chromadb.utils import embedding_functions
-from langchain_community.vectorstores import Chroma  
-from chromadb import PersistentClient
-from chromadb.utils import embedding_functions
 
+# ✅ Load environment
 load_dotenv()
 os.environ["AUTOGEN_USE_DOCKER"] = "False"
 
+# ✅ Use Streamlit-safe persistent path
+CHROMA_DB_PATH = "/mount/tmp/chroma_db"
+os.makedirs(CHROMA_DB_PATH, exist_ok=True)
 
-# Use correct path
-chroma_client = PersistentClient(path="C:/Users/MATHALIN/smartsuggestion(ai)/chroma_db")
+# ✅ Setup Chroma client
+chroma_client = PersistentClient(path=CHROMA_DB_PATH)
 
-# Create embedding function
+# ✅ Embedder setup
 sentence_transformer_ef = embedding_functions.SentenceTransformerEmbeddingFunction(
     model_name="all-MiniLM-L6-v2"
 )
 
-# Get or create collection using modern syntax
+# ✅ Create/get collection
 collection = chroma_client.get_or_create_collection(
     name="documents",
     embedding_function=sentence_transformer_ef
 )
+
+
 class ChatAgent(UserProxyAgent):
     def __init__(self, *args, **kwargs):
         super().__init__(*args, **kwargs)
@@ -210,50 +212,34 @@ def generate_analysis():
 
 def generate_article():
     try:
-        # 1. Extract title and keywords
         title, keywords = extract_title_keywords_relevance(st.session_state.current_analysis)
-
-        # 2. Initialize HuggingFace embeddings
-        from langchain.embeddings import HuggingFaceEmbeddings
+        
+        # Initialize embeddings
         embeddings = HuggingFaceEmbeddings(model_name="all-MiniLM-L6-v2")
+        
+        # ✅ Modern ChromaDB client again
+        client = PersistentClient(path="/mount/tmp/chroma_db")
 
-        # 3. Setup ChromaDB client and embedding function
-        from chromadb import PersistentClient
-        from chromadb.utils import embedding_functions
-        import os
-
-        chroma_path = os.path.normpath("C:/Users/MATHALIN/smartsuggestion(ai)/chroma_db")
-        client = PersistentClient(path=chroma_path)
-
-        sentence_transformer_ef = embedding_functions.SentenceTransformerEmbeddingFunction(
-            model_name="all-MiniLM-L6-v2"
-        )
-
-        # 4. (Re)Create collection
-        try:
-            client.delete_collection(name="documents")
-        except Exception as e:
-            st.warning(f"Collection reset warning: {str(e)}")
-
-        collection = client.get_or_create_collection(
+        
+        # Get collection with embedding function
+        collection = client.get_collection(
             name="documents",
-            embedding_function=sentence_transformer_ef
+            embedding_function=embedding_functions.SentenceTransformerEmbeddingFunction(
+                model_name="all-MiniLM-L6-v2"
+            )
         )
-
-        # 5. LangChain vector store using the Chroma client
-        from langchain.vectorstores import Chroma
+        
+        # Create LangChain vector store
         vector_store = Chroma(
             client=client,
             collection_name="documents",
             embedding_function=embeddings
         )
 
-        # 6. Run similarity search
         search_query = f"{title}. Keywords: {', '.join(keywords)}"
         relevant_docs = vector_store.similarity_search(search_query, k=3)
         relevant_content = "\n\n".join([doc.page_content for doc in relevant_docs])
 
-        # 7. Build article prompt
         prompt = f"""
             Write a clear, engaging article (500-600 words) on: {title}
             Make it simple, crisp, and easy to follow for a broad audience.
@@ -279,7 +265,6 @@ def generate_article():
             {relevant_content}
             """
 
-        # 8. Use AI assistant to generate the article
         assistant = AssistantAgent(
             name="writer_agent",
             system_message="You're a professional content writer.",
@@ -294,7 +279,6 @@ def generate_article():
         )
         user = ChatAgent(name="user", human_input_mode="NEVER", max_consecutive_auto_reply=1)
         user.initiate_chat(assistant, message=prompt, clear_history=True)
-
         if user.responses:
             st.session_state.messages.append({
                 "role": "assistant",
@@ -303,11 +287,10 @@ def generate_article():
             st.session_state.current_article_content = user.responses[-1]
             st.session_state.article_generated = True
             return True
-
     except Exception as e:
         st.error(f"Article generation failed: {str(e)}")
-        st.exception(e)
         return False
+
 
 
 def refine_article(feedback):
