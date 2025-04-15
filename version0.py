@@ -523,7 +523,7 @@ def generate_post_with_human_version(post_type):
         st.error(f"Post generation failed: {str(e)}")
         return None
 
-st.set_page_config(page_title="Interactive Chat", layout="centered")
+st.set_page_config(page_title="content generator", layout="centered")
 st.title("💬 Content Generator")
 
 for message in st.session_state.messages:
@@ -569,7 +569,7 @@ elif not st.session_state.audience:
 
 elif st.session_state.awaiting_custom_keywords and not st.session_state.custom_keywords_entered:
     with st.chat_message("assistant"):
-        st.markdown("Enter up to 5 keywords separated by commas:")
+        st.markdown("Enter up to  keywords separated by commas:")
     keywords_input = st.text_input(
         "Keywords", 
         label_visibility="collapsed",
@@ -711,11 +711,11 @@ elif st.session_state.refinement_requested and not st.session_state.versions_gen
             st.session_state.messages += [
                 {
                     "role": "assistant",
-                    "content": f"### 🤖 AI-Optimized {st.session_state.post_type}\n\n{versions['ai']}"
+                    "content": f"### {st.session_state.post_type}\n\n{versions['ai']}"
                 },
                 {
                     "role": "assistant",
-                    "content": f"### ✍️ Humanized Version\n\n{versions['human']}"
+                    "content": f"###  Humanized Version\n\n{versions['human']}"
                 }
             ]
             st.rerun()
