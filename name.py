@@ -1,2 +1,6 @@
-import sqlite3
-print(sqlite3.sqlite_version)  # Should be 3.35.0 or higher
+try:
+    from chromadb import PersistentClient
+    print("✅ PersistentClient is available!")
+except ImportError:
+    print("❌ PersistentClient is NOT available in this version.")
+

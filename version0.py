@@ -4,7 +4,6 @@ import os
 import streamlit as st
 from dotenv import load_dotenv
 
-# ✅ Override sqlite3 for Chroma compatibility (especially in cloud)
 if sqlite3.sqlite_version_info < (3, 35, 0):
     try:
         from chromadb.utils import embedding_functions
