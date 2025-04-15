@@ -185,17 +185,24 @@ def generate_analysis():
 def generate_article():
     try:
         title, keywords = extract_title_keywords_relevance(st.session_state.current_analysis)
-        
         embeddings = GoogleGenerativeAIEmbeddings(
-            model="models/embedding-001",
+            model="models/embedding-001",  
             google_api_key=os.getenv("GOOGLE_API_KEY")
         )
+        client = chromadb.PersistentClient(path="C:/Users/MATHALIN/smartsuggestion(ai)/chroma_db")
+        try:
+            client.delete_collection(name="documents")
+        except:
+            pass    
         vector_store = Chroma(
             embedding_function=embeddings,
-            persist_directory="C:/Users/MATHALIN/smartsuggestion(ai)/chroma_db"
+            persist_directory="C:/Users/MATHALIN/smartsuggestion(ai)/chroma_db",
+            collection_name="documents"
         )
-        relevant_docs = vector_store.similarity_search(f"{title}. Keywords: {', '.join(keywords)}", k=3)
+        search_query = f"{title}. Keywords: {', '.join(keywords)}"
+        relevant_docs = vector_store.similarity_search(search_query, k=3)
         relevant_content = "\n\n".join([doc.page_content for doc in relevant_docs])
+        
         prompt = f"""
             Write a clear, engaging article (500-600 words) on: {title}
             Make it simple, crisp, and easy to follow for a broad audience.
