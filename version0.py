@@ -22,21 +22,22 @@ from autogen import AssistantAgent, UserProxyAgent
 from langchain_google_genai import GoogleGenerativeAIEmbeddings
 from chromadb.utils import embedding_functions
 from langchain_community.vectorstores import Chroma  
-import chromadb
+from chromadb import PersistentClient
 from chromadb.utils import embedding_functions
 
 load_dotenv()
 os.environ["AUTOGEN_USE_DOCKER"] = "False"
 
-# Initialize client - correct syntax for ChromaDB >= 0.4.0
-chroma_client = chromadb.PersistentClient(path="chroma_db")
+
+# Use correct path
+chroma_client = PersistentClient(path="C:/Users/MATHALIN/smartsuggestion(ai)/chroma_db")
 
 # Create embedding function
 sentence_transformer_ef = embedding_functions.SentenceTransformerEmbeddingFunction(
     model_name="all-MiniLM-L6-v2"
 )
 
-# Get or create collection
+# Get or create collection using modern syntax
 collection = chroma_client.get_or_create_collection(
     name="documents",
     embedding_function=sentence_transformer_ef
@@ -211,48 +212,48 @@ def generate_article():
     try:
         # 1. Extract title and keywords
         title, keywords = extract_title_keywords_relevance(st.session_state.current_analysis)
-        
-        # 2. Initialize embeddings
+
+        # 2. Initialize HuggingFace embeddings
+        from langchain.embeddings import HuggingFaceEmbeddings
         embeddings = HuggingFaceEmbeddings(model_name="all-MiniLM-L6-v2")
-        
-        # 3. Initialize ChromaDB (modern syntax for v1.0+)
+
+        # 3. Setup ChromaDB client and embedding function
         from chromadb import PersistentClient
         from chromadb.utils import embedding_functions
-        
-        # Normalize path for cross-platform compatibility
         import os
+
         chroma_path = os.path.normpath("C:/Users/MATHALIN/smartsuggestion(ai)/chroma_db")
-        
-        # Create client and embedding function
         client = PersistentClient(path=chroma_path)
+
         sentence_transformer_ef = embedding_functions.SentenceTransformerEmbeddingFunction(
             model_name="all-MiniLM-L6-v2"
         )
-        
-        # 4. Collection handling with modern API
+
+        # 4. (Re)Create collection
         try:
             client.delete_collection(name="documents")
         except Exception as e:
             st.warning(f"Collection reset warning: {str(e)}")
-        
+
         collection = client.get_or_create_collection(
             name="documents",
             embedding_function=sentence_transformer_ef
         )
-        
-        # 5. Create LangChain vector store
+
+        # 5. LangChain vector store using the Chroma client
+        from langchain.vectorstores import Chroma
         vector_store = Chroma(
             client=client,
-            embedding_function=embeddings,
-            collection_name="documents"
+            collection_name="documents",
+            embedding_function=embeddings
         )
 
-        # 6. Perform similarity search
+        # 6. Run similarity search
         search_query = f"{title}. Keywords: {', '.join(keywords)}"
         relevant_docs = vector_store.similarity_search(search_query, k=3)
         relevant_content = "\n\n".join([doc.page_content for doc in relevant_docs])
 
-        # [Rest of your existing article generation code...]
+        # 7. Build article prompt
         prompt = f"""
             Write a clear, engaging article (500-600 words) on: {title}
             Make it simple, crisp, and easy to follow for a broad audience.
@@ -278,6 +279,7 @@ def generate_article():
             {relevant_content}
             """
 
+        # 8. Use AI assistant to generate the article
         assistant = AssistantAgent(
             name="writer_agent",
             system_message="You're a professional content writer.",
@@ -292,6 +294,7 @@ def generate_article():
         )
         user = ChatAgent(name="user", human_input_mode="NEVER", max_consecutive_auto_reply=1)
         user.initiate_chat(assistant, message=prompt, clear_history=True)
+
         if user.responses:
             st.session_state.messages.append({
                 "role": "assistant",
@@ -300,11 +303,12 @@ def generate_article():
             st.session_state.current_article_content = user.responses[-1]
             st.session_state.article_generated = True
             return True
-            
+
     except Exception as e:
         st.error(f"Article generation failed: {str(e)}")
-        st.exception(e)  
+        st.exception(e)
         return False
+
 
 def refine_article(feedback):
     try:
