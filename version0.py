@@ -1,48 +1,45 @@
 import sys
 import sqlite3
-import os
-import streamlit as st
-from dotenv import load_dotenv
-
 if sqlite3.sqlite_version_info < (3, 35, 0):
     try:
-        from chromadb.utils import embedding_functions
-        embedding_functions._sqlite3 = sqlite3
-        sys.modules['sqlite3'] = sqlite3
+        __import__('pysqlite3')
+        sys.modules['sqlite3'] = sys.modules.pop('pysqlite3')
     except ImportError:
-        pass
-
-from chromadb import PersistentClient
-from chromadb.utils import embedding_functions
+        try:
+            from chromadb.utils import embedding_functions
+            embedding_functions._sqlite3 = sqlite3
+            sys.modules['sqlite3'] = sqlite3
+        except ImportError:
+            pass  
 from langchain.embeddings import HuggingFaceEmbeddings
-from langchain_community.vectorstores import Chroma
+import streamlit as st
+import os
+import chromadb
+from dotenv import load_dotenv
 from PyPDF2 import PdfReader
 from langchain.text_splitter import RecursiveCharacterTextSplitter
 from autogen import AssistantAgent, UserProxyAgent
+from langchain_google_genai import GoogleGenerativeAIEmbeddings
+from langchain_community.vectorstores import Chroma  
+from chromadb import PersistentClient
+from chromadb.utils import embedding_functions
 
-# ✅ Load environment
 load_dotenv()
 os.environ["AUTOGEN_USE_DOCKER"] = "False"
 
-# ✅ Use Streamlit-safe persistent path
-CHROMA_DB_PATH = "/mount/tmp/chroma_db"
-os.makedirs(CHROMA_DB_PATH, exist_ok=True)
+# Fix: Update ChromaDB client initialization to use PersistentClient
+chroma_client = PersistentClient(path="chroma_db")
 
-# ✅ Setup Chroma client
-chroma_client = PersistentClient(path=CHROMA_DB_PATH)
-
-# ✅ Embedder setup
+# Create embedding function
 sentence_transformer_ef = embedding_functions.SentenceTransformerEmbeddingFunction(
     model_name="all-MiniLM-L6-v2"
 )
 
-# ✅ Create/get collection
+# Get or create collection
 collection = chroma_client.get_or_create_collection(
     name="documents",
     embedding_function=sentence_transformer_ef
 )
-
-
 class ChatAgent(UserProxyAgent):
     def __init__(self, *args, **kwargs):
         super().__init__(*args, **kwargs)
@@ -216,16 +213,13 @@ def generate_article():
         # Initialize embeddings
         embeddings = HuggingFaceEmbeddings(model_name="all-MiniLM-L6-v2")
         
-        # ✅ Modern ChromaDB client again
-        client = PersistentClient(path="/mount/tmp/chroma_db")
-
+        # Fix: Update the client initialization to use PersistentClient for article generation
+        client = PersistentClient(path="chroma_db")
         
         # Get collection with embedding function
         collection = client.get_collection(
             name="documents",
-            embedding_function=embedding_functions.SentenceTransformerEmbeddingFunction(
-                model_name="all-MiniLM-L6-v2"
-            )
+            embedding_function=sentence_transformer_ef
         )
         
         # Create LangChain vector store
@@ -235,6 +229,7 @@ def generate_article():
             embedding_function=embeddings
         )
 
+        # Rest of your function remains the same...
         search_query = f"{title}. Keywords: {', '.join(keywords)}"
         relevant_docs = vector_store.similarity_search(search_query, k=3)
         relevant_content = "\n\n".join([doc.page_content for doc in relevant_docs])
@@ -286,12 +281,10 @@ def generate_article():
             st.session_state.current_article_content = user.responses[-1]
             st.session_state.article_generated = True
             return True
+            
     except Exception as e:
         st.error(f"Article generation failed: {str(e)}")
         return False
-
-
-
 def refine_article(feedback):
     try:
         current_article = next(
@@ -543,7 +536,7 @@ def generate_post_with_human_version(post_type):
             - Add light personality or perspective where it fits.
             - Avoid sounding robotic, repetitive, or overly formal.
             - No fluff. No filler. Just clean, real-sounding writing.
-            Don’t:
+            Don't:
             - Mention it's rewritten.
             - Add or change facts.
             Return only the rewritten version—no extra notes.
@@ -749,7 +742,7 @@ elif st.session_state.refinement_requested and not st.session_state.versions_gen
             st.session_state.versions_generated = True
             st.session_state.messages += [
                 {
-                    "role": "assistant",
+                    "role":"assistant",
                     "content": f"### {st.session_state.post_type}\n\n{versions['ai']}"
                 },
                 {
@@ -758,4 +751,3 @@ elif st.session_state.refinement_requested and not st.session_state.versions_gen
                 }
             ]
             st.rerun()
-
