@@ -1,45 +1,45 @@
 import sys
 import sqlite3
+import os
+import streamlit as st
+from dotenv import load_dotenv
+from PyPDF2 import PdfReader
+
 if sqlite3.sqlite_version_info < (3, 35, 0):
     try:
         __import__('pysqlite3')
         sys.modules['sqlite3'] = sys.modules.pop('pysqlite3')
     except ImportError:
-        try:
-            from chromadb.utils import embedding_functions
-            embedding_functions._sqlite3 = sqlite3
-            sys.modules['sqlite3'] = sqlite3
-        except ImportError:
-            pass  
-from langchain.embeddings import HuggingFaceEmbeddings
-import streamlit as st
-import os
+        pass
+
 import chromadb
-from dotenv import load_dotenv
-from PyPDF2 import PdfReader
-from langchain.text_splitter import RecursiveCharacterTextSplitter
-from autogen import AssistantAgent, UserProxyAgent
-from langchain_google_genai import GoogleGenerativeAIEmbeddings
-from langchain_community.vectorstores import Chroma  
-from chromadb import PersistentClient
+from chromadb.config import Settings
 from chromadb.utils import embedding_functions
+from langchain_community.vectorstores import Chroma
+from langchain.embeddings import HuggingFaceEmbeddings
+from langchain.text_splitter import RecursiveCharacterTextSplitter
+from langchain_google_genai import GoogleGenerativeAIEmbeddings
+from autogen import AssistantAgent, UserProxyAgent
+
 
 load_dotenv()
 os.environ["AUTOGEN_USE_DOCKER"] = "False"
 
-# Fix: Update ChromaDB client initialization to use PersistentClient
-chroma_client = PersistentClient(path="chroma_db")
+CHROMA_PATH = os.getenv("CHROMA_PATH", "./chroma_db")
+chroma_client = chromadb.PersistentClient(
+    path=CHROMA_PATH,
+    settings=Settings(anonymized_telemetry=False, allow_reset=True)
+)
 
-# Create embedding function
 sentence_transformer_ef = embedding_functions.SentenceTransformerEmbeddingFunction(
     model_name="all-MiniLM-L6-v2"
 )
 
-# Get or create collection
 collection = chroma_client.get_or_create_collection(
     name="documents",
     embedding_function=sentence_transformer_ef
 )
+
 class ChatAgent(UserProxyAgent):
     def __init__(self, *args, **kwargs):
         super().__init__(*args, **kwargs)
@@ -50,29 +50,18 @@ class ChatAgent(UserProxyAgent):
         if isinstance(message, dict) and "content" in message:
             self.responses.append(message["content"])
 
+# Session state defaults
 if "messages" not in st.session_state:
     st.session_state.update({
-        "messages": [],
-        "custom_keywords": [],
-        "current_analysis": "",
-        "document_id": None,
-        "audience": None,
-        "awaiting_custom_keywords": False,
-        "custom_keywords_entered": False,
-        "article_generated": False,
-        "awaiting_refinement": False,
-        "refinement_requested": False,
-        "post_type": None,
-        "tone": None,
-        "custom_tone": None,
-        "awaiting_custom_tone": False,
-        "versions_generated": False,
-        "current_article_content": None,
-        "uploaded_file": None,
-        "file_processed": False,
-        "analysis_title": None,
-        "analysis_keywords": [],
-        "ai_generated_post": None,
+        "messages": [], "custom_keywords": [], "current_analysis": "",
+        "document_id": None, "audience": None, "awaiting_custom_keywords": False,
+        "custom_keywords_entered": False, "article_generated": False,
+        "awaiting_refinement": False, "refinement_requested": False,
+        "post_type": None, "tone": None, "custom_tone": None,
+        "awaiting_custom_tone": False, "versions_generated": False,
+        "current_article_content": None, "uploaded_file": None,
+        "file_processed": False, "analysis_title": None,
+        "analysis_keywords": [], "ai_generated_post": None,
         "humanized_post": None
     })
 
@@ -83,26 +72,23 @@ def extract_text_from_pdf(uploaded_file):
 def process_uploaded_file():
     if not st.session_state.uploaded_file:
         return False
-    
     try:
         text = extract_text_from_pdf(st.session_state.uploaded_file)
         splitter = RecursiveCharacterTextSplitter(chunk_size=1000, chunk_overlap=200)
         chunks = splitter.split_text(text)
-        
         document_id = st.session_state.uploaded_file.name
         collection.add(
             documents=chunks[:3],
             ids=[f"{document_id}_chunk{i}" for i in range(min(3, len(chunks)))]
         )
-        
         st.session_state.document_id = document_id
         st.session_state.file_processed = True
         return True
-        
     except Exception as e:
         st.error(f"Error processing file: {str(e)}")
         return False
 
+# Extract title & keywords
 def extract_title_keywords_relevance(analysis_text):
     lines = analysis_text.split("\n")
     title = ""
@@ -209,27 +195,12 @@ def generate_analysis():
 def generate_article():
     try:
         title, keywords = extract_title_keywords_relevance(st.session_state.current_analysis)
-        
-        # Initialize embeddings
         embeddings = HuggingFaceEmbeddings(model_name="all-MiniLM-L6-v2")
-        
-        # Fix: Update the client initialization to use PersistentClient for article generation
-        client = PersistentClient(path="chroma_db")
-        
-        # Get collection with embedding function
-        collection = client.get_collection(
-            name="documents",
-            embedding_function=sentence_transformer_ef
-        )
-        
-        # Create LangChain vector store
         vector_store = Chroma(
-            client=client,
+            client=chroma_client,
             collection_name="documents",
             embedding_function=embeddings
         )
-
-        # Rest of your function remains the same...
         search_query = f"{title}. Keywords: {', '.join(keywords)}"
         relevant_docs = vector_store.similarity_search(search_query, k=3)
         relevant_content = "\n\n".join([doc.page_content for doc in relevant_docs])
