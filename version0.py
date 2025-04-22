@@ -20,7 +20,7 @@ from langchain.embeddings import HuggingFaceEmbeddings
 from langchain.text_splitter import RecursiveCharacterTextSplitter
 from langchain_google_genai import GoogleGenerativeAIEmbeddings
 from autogen import AssistantAgent, UserProxyAgent
- 
+
 
 load_dotenv()
 os.environ["AUTOGEN_USE_DOCKER"] = "False"

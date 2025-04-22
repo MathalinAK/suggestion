@@ -1,35 +1,14 @@
-# Core dependencies
-streamlit==1.33.0
-python-dotenv==1.0.0
-
-# PDF processing
-pypdf==4.2.0  # Modern replacement for PyPDF2
-
-# LangChain ecosystem
-langchain==0.1.16  # Stable version for Python 3.12
-langchain-community==0.0.34
-langchain-google-genai==0.1.0
-
-# Vector database
-chromadb==0.4.22  # First Python 3.12-compatible version
-
-# Embeddings
-sentence-transformers==2.7.0
-
-# AutoGen (Python 3.12 compatible)
-pyautogen==0.8.7  # Latest stable for Python 3.12
-
-# Protobuf and serialization
-protobuf==4.25.3  # Must stay <5.0.0 for compatibility
-pydantic==2.7.1  # v2 required by newer packages
-
-# System dependencies
-pysqlite3-binary==1.0.0  # Critical for ChromaDB on Python 3.12
-packaging==24.0  # Middle ground for compatibility
-
-# Additional utilities
-typing-extensions==4.11.0  # Often required by modern packages
-
-
-
-
+streamlit>=1.33.0
+python-dotenv>=1.0.0
+pypdf>=4.2.0
+langchain>=0.1.14
+langchain-community>=0.0.34
+langchain-google-genai>=0.0.5
+langchain-core>=0.1.38
+chromadb>=0.4.22
+sentence-transformers>=2.7.0
+pyautogen>=0.8.7
+protobuf>=4.25.3,<5.0.0  # Constraint to avoid major version conflicts
+pydantic>=2.0.0,<3.0.0   # LangChain now supports Pydantic v2
+packaging>=24.0
+typing-extensions>=4.11.0
