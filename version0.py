@@ -3,7 +3,7 @@ import sqlite3
 import os
 import streamlit as st
 from dotenv import load_dotenv
-from PyPDF2 import PdfReader
+from pypdf import PdfReader
 
 if sqlite3.sqlite_version_info < (3, 35, 0):
     try:
